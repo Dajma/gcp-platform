@@ -1172,3 +1172,313 @@ Each group can only do what their role requires. A network engineer cannot accid
 (or intentionally) read a Secret Manager secret. A developer cannot modify a firewall rule.
 A security engineer cannot deploy a workload to production. This is separation of duties
 implemented through IAM — not just policy, but technically enforced.
+
+---
+
+### 16.7 What is the Platform Team?
+
+The platform team (also called the infrastructure platform team, cloud platform team, or
+sometimes SRE at larger companies) is the team that **builds and operates the internal
+infrastructure that all other engineering teams build on top of**.
+
+They do not write the business application code. They write the infrastructure that makes
+it safe, scalable, and operationally manageable for those who do.
+
+**The analogy:** Application teams are tenants in a building. The platform team built the
+building — the plumbing, electricity, fire suppression, security cameras, and lifts.
+Tenants do not wire their own electricity or install their own fire exits. They use what
+the building provides and focus on what they do inside their unit.
+
+---
+
+#### What the platform team owns in this design
+
+| Area | Responsibility |
+|---|---|
+| GCP organisation structure | Folders, org policies, billing accounts, audit logging |
+| Identity and access | IAM strategy, group definitions, WIF setup, break-glass accounts |
+| Networking | Shared VPC, subnets, Cloud NAT, Cloud DNS, firewall baselines |
+| GKE clusters | Provisioning, upgrading, node pool management, Binary Auth policy |
+| CI/CD pipelines | The GitHub Actions workflows, the WIF providers, the Artifact Registry |
+| Terraform modules | The reusable `terraform/modules/` — `gcp-project`, `vpc-shared`, `gke-cluster`, etc. |
+| Observability infrastructure | The logging sinks, the Grafana instance, the alerting framework |
+| Security tooling | SCC configuration, KMS keyrings, Secret Manager setup |
+| Runbooks and operational procedures | How to upgrade a cluster, rotate a cert, remediate drift |
+
+#### What the platform team does NOT own
+
+| Area | Who owns it |
+|---|---|
+| What the application does | Application team |
+| Application-level code | Application team |
+| Business logic | Application team |
+| Application-specific secrets | Application team (they write to Secret Manager; platform team manages the infrastructure of Secret Manager, not the secrets themselves) |
+| Feature flags, A/B tests | Application team |
+
+---
+
+#### How it works at companies like Stripe, Shopify, Datadog
+
+At these companies the platform team is called different things — Platform Engineering,
+Infrastructure, Cloud Platform, Production Engineering — but the pattern is the same:
+
+**Stripe:** "Production Engineering" builds and operates the compute platform, deployment
+tooling, and observability stack. Application engineers deploy to it via self-service.
+They do not file tickets to get a new project or a new GKE namespace — it is automated.
+
+**Shopify:** "Infrastructure Platform" owns the Kubernetes platform, the CI/CD system,
+and the cloud accounts. Each product team is a tenant with a defined quota and a
+self-service interface for common operations.
+
+**Datadog:** "Platform" owns the entire GCP org structure, the shared services, and
+the Terraform module library. Product teams call the modules — they do not write
+raw Terraform against GCP APIs.
+
+The common pattern: **the platform team builds the interface (modules, pipelines, policies)
+that makes the right thing the easy thing for everyone else.**
+
+---
+
+#### In a small org or a lab (like this one)
+
+In a large company there are 10–50 engineers on the platform team.
+In a startup or a personal lab there is one person doing all of it — network engineer,
+security engineer, platform engineer, SRE, and FinOps advisor simultaneously.
+
+That is exactly what this project is — one person building the full platform stack to the
+same standard a dedicated team would at a large company. The folder/project/IAM structure
+still reflects the separation of concerns even if one person holds all the groups.
+When the team grows, you add people to the right groups and the permissions are already
+scoped correctly. You do not have to restructure anything.
+
+---
+
+## 17. Major Companies on GCP — Who They Are and What's Known About Their Setup
+
+This section covers companies that run significant workloads on GCP and have publicly
+documented their architecture through case studies, engineering blogs, or conference talks.
+Where architecture details are not public, only confirmed facts are stated.
+
+---
+
+### Spotify
+
+**Scale:** ~400 million users, one of the largest GCP customers by workload volume.
+
+**Why GCP:** Spotify began migrating off their own data centres in 2016. Primary reasons:
+managed Kubernetes (GKE was more mature than alternatives at the time), BigQuery for
+data analytics at scale, and avoiding the operational burden of running bare metal.
+
+**What's publicly known:**
+- Runs entirely on GCP — no on-prem data centres remaining for core services
+- Uses GKE at massive scale across multiple regions for their microservices platform
+- Built **Backstage** (now open-sourced and a CNCF project) as their internal developer
+  portal — it was built on GCP and designed around the same self-service tenant model
+  described in section 16.7
+- Uses BigQuery extensively for analytics — their data pipeline processes hundreds of
+  billions of events per day (stream listening, user behaviour, recommendation signals)
+- Uses Dataflow (Apache Beam managed) for real-time stream processing
+- Uses Pub/Sub for event streaming between microservices
+- Wrote extensively about their "Golden Path" approach — the platform team defines
+  a supported, opinionated way to deploy services; app teams follow it and get
+  monitoring, CI/CD, and security controls out of the box
+
+**Relevance to this design:**
+The Golden Path = our Terraform modules. The platform team builds the module;
+application teams call it. Spotify's self-service model and Backstage are the
+enterprise version of what the `gcp-project` factory module (Phase 5) provides here.
+
+**Public resources:**
+- Spotify Engineering Blog: spotify.engineering
+- "Spotify's Journey to the Cloud" — Google Cloud Next talks (2017–2019)
+- Backstage.io open source project
+
+---
+
+### Snap Inc. (Snapchat)
+
+**Scale:** ~800 million monthly active users. One of the highest-spending GCP customers —
+committed approximately $2 billion to GCP over 5 years (publicly disclosed in SEC filings).
+
+**Why GCP:** Snap has been on GCP since near-founding. Their business depends on low-latency
+media processing (images, video, AR filters) and ML inference at massive scale — workloads
+that align with GCP's strengths in TPUs, GPU availability, and Cloud CDN.
+
+**What's publicly known:**
+- Runs core infrastructure on GCP with multi-region active-active deployments
+- Heavy use of GKE for microservices
+- Significant TPU usage for AR/ML model training and inference (Lens Studio, Snap Map)
+- Uses Cloud Spanner for globally-consistent transactional data
+  (Cloud Spanner is specifically designed for planet-scale transactional workloads —
+  Snap needs consistent data across regions for features like streaks and friend counts)
+- Uses Bigtable for high-throughput low-latency key-value storage
+- Uses Cloud CDN aggressively — media delivery at global scale
+- Network architecture is necessarily multi-region with data residency considerations
+  given their global user base
+
+**Relevance to this design:**
+Snap's multi-region active-active pattern is the production endpoint of the single-region
+lab we are building. The project/folder isolation model, private networking, and
+Shared VPC patterns scale directly to multi-region without architectural change —
+you add subnets and node pools in additional regions, the hub VPC is already global.
+
+---
+
+### Shopify
+
+**Scale:** Powers ~10% of US e-commerce. Handles Black Friday traffic spikes that are
+among the most demanding in the industry (~hundreds of thousands of requests per second
+at peak).
+
+**Why GCP:** Shopify moved from a Rails monolith on bare metal to a hybrid cloud model
+with GCP as a primary provider. Their engineering blog is one of the most detailed
+public sources of information about running e-commerce infrastructure at scale.
+
+**What's publicly known:**
+- Uses GKE extensively for their platform services
+- Built a significant internal platform around Kubernetes — similar to the Backstage
+  model, with self-service tooling for their hundreds of engineering teams
+- Uses Cloud Spanner for their core financial and inventory data
+  (consistent, globally distributed — critical for inventory accuracy during flash sales)
+- Heavy use of Cloud SQL for application databases
+- Invested significantly in FinOps — they have public talks about cost attribution,
+  chargeback models, and quota management at scale
+- Documented their approach to handling Black Friday: pre-provisioning, load testing
+  as a first-class practice, SLO-based alerting to catch degradation before customers notice
+- Multi-cloud: Shopify uses GCP and other providers; they are not GCP-exclusive
+
+**Relevance to this design:**
+Shopify's FinOps discipline — cost attribution by team via labels, quota management,
+pre-provisioning for known peaks — is exactly the cost-center labelling strategy
+(`env`, `team`, `cost-center`) built into every Terraform module here. Their SLO
+approach maps directly to Phase 8 (Observability).
+
+**Public resources:**
+- Shopify Engineering Blog: shopify.engineering
+- "Resiliency Planning for High-Traffic Events" — Shopify Engineering blog
+
+---
+
+### Twitter / X
+
+**Scale:** Historically ~200–300 million daily active users.
+
+**GCP relationship:** Twitter's GCP usage is more selective than Spotify or Snap.
+After the 2022 acquisition and infrastructure cost-cutting, Twitter/X signed a significant
+GCP deal focused specifically on AI/ML workloads.
+
+**What's publicly known:**
+- Uses GCP primarily for AI/ML model training (the "For You" recommendation algorithm,
+  content moderation models) — leveraging GCP's TPU/GPU infrastructure
+- The core serving infrastructure (tweets, timelines) historically ran in Twitter's own
+  data centres; migration of core serving to cloud was ongoing as of 2023–2024
+- Grok (xAI) training workloads run on GPU clusters — GCP is one of the providers
+
+**Relevance to this design:** Twitter's selective cloud adoption (AI/ML on GCP, core
+serving on-prem) is a common pattern in companies that started before managed cloud was
+mature. The hybrid connectivity patterns (Cloud VPN/Interconnect between on-prem and GCP)
+are relevant for any organisation with existing data centres.
+
+---
+
+### HSBC
+
+**Scale:** One of the world's largest banks. Subject to some of the strictest financial
+services regulations globally (FCA, OCC, MAS, etc.).
+
+**Why GCP:** HSBC signed a major partnership with Google Cloud. The driver is
+not just infrastructure cost — it is access to AI/ML capabilities for fraud detection,
+customer risk scoring, and trading analytics.
+
+**What's publicly known:**
+- Runs workloads on GCP subject to financial services compliance requirements:
+  GDPR, FCA regulations, local data residency requirements across jurisdictions
+- Uses VPC Service Controls extensively — data residency and exfiltration prevention
+  are non-negotiable in banking
+- Uses CMEK with Cloud HSM (Hardware Security Module) — regulatory requirement
+  that cryptographic keys are backed by certified hardware, not software
+- Uses Access Transparency — a GCP feature that logs when Google employees
+  access customer data (regulatory audit requirement)
+- Dedicated Cloud Interconnect (not VPN) — banks do not route sensitive data over the internet
+- Customer-managed encryption keys (CMEK) on every data store — required by some regulators
+- Uses BigQuery for regulatory reporting — the ability to run SQL over audit logs and
+  transaction data is critical for regulatory submissions
+
+**Relevance to this design:**
+HSBC's requirements are the production endpoint of the security controls built here —
+VPC Service Controls, CMEK, Cloud HSM, Access Transparency, dedicated interconnects.
+The compliance framing in `docs/architecture/standards-and-compliance.md` (SOC 2, ISO 27001)
+is the same framework financial services companies use to demonstrate control to regulators.
+
+---
+
+### Etsy
+
+**Scale:** ~90 million active buyers. Fully migrated to GCP from owned data centres.
+
+**Why GCP:** Etsy publicly documented one of the most detailed cloud migration case studies
+available. They moved from 7 data centres to GCP over several years, decommissioning all
+owned hardware.
+
+**What's publicly known:**
+- Migrated entire stack to GCP including their MySQL databases, which required careful
+  planning around Cloud SQL HA configurations and replication
+- Uses GKE for their services platform
+- Their migration prioritised **operational simplicity** — the engineering blog details
+  how reducing on-call burden (no hardware failures, no rack cabling) was a core success metric
+- Uses BigQuery for business intelligence and seller analytics
+- Documented their approach to database migration: lift-and-shift first (get off hardware),
+  then optimise for cloud-native patterns
+
+**Relevance to this design:**
+Etsy's "operational simplicity" framing is exactly the SRE argument for managed services —
+Cloud SQL instead of self-managed MySQL, GKE instead of self-managed Kubernetes, managed
+Prometheus instead of self-managed Prometheus. Every managed service in this design removes
+a category of on-call pages.
+
+---
+
+### Doordash
+
+**Scale:** Operates across 27+ countries, processes millions of orders daily with strict
+latency SLOs (delivery time estimation, driver dispatch, real-time tracking).
+
+**What's publicly known:**
+- Runs on GCP as primary cloud provider
+- Uses GKE for their microservices platform
+- Uses Cloud Spanner for their globally consistent order management data
+- Has published extensively on their approach to reliability — PodDisruptionBudgets,
+  HPA tuning, and GKE cluster upgrade strategies are all documented on their engineering blog
+- Uses a feature flag system deployed on GCP for progressive rollouts — separating
+  deployment from release
+- Documented their on-call practices: runbooks for every alert, SLO-based pages only
+  (not symptom-based), blameless post-mortems
+
+**Relevance to this design:**
+Doordash's GKE operational practices (PDBs on every critical workload, HPA tuning,
+upgrade runbooks) are the exact content of Phase 7 (GKE Platform) and Phase 10
+(Day-2 Operations) in this build. Their SLO-based alerting philosophy is the foundation
+of Phase 8 (Observability).
+
+---
+
+### Common Patterns Across All of Them
+
+Looking across Spotify, Snap, Shopify, HSBC, Etsy, and Doordash, every mature GCP deployment
+converges on the same architectural patterns — which is exactly what this platform implements:
+
+| Pattern | Why every mature GCP org uses it |
+|---|---|
+| Multi-project topology | Blast radius isolation; VPC Service Controls require project boundaries |
+| Shared VPC / hub-and-spoke | Centralised network management; avoids peering mesh |
+| GKE (private clusters) | Managed control plane reduces operational burden; Workload Identity eliminates key management |
+| Workload Identity | Static SA keys are the #1 cause of GCP credential compromise incidents |
+| Centralised logging (BigQuery sink) | Ad-hoc SQL over logs is operationally transformative vs grep-based investigation |
+| CMEK | Required for regulated industries; good practice everywhere |
+| SLO-based alerting | Reduces alert fatigue; focuses on customer impact, not symptoms |
+| Terraform modules (project factory) | Self-service project creation without security/networking review bottleneck |
+| Binary Authorization | Supply chain security is a board-level concern post-SolarWinds/Log4Shell |
+| VPC Service Controls | Data exfiltration prevention; required for any regulated data |
+
+This platform is not academic — it is the exact architecture that runs the infrastructure
+behind apps used by hundreds of millions of people daily.

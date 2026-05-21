@@ -36,7 +36,8 @@ gcp-platform/
 1. Read `CLAUDE.md` — full architectural context and standards
 2. Read `PROGRESS.md` — current phase and what's been built
 3. Read `docs/decisions/ADR-log.md` — all significant architectural decisions
-4. Read `bootstrap/org-setup/prerequisites-checklist.md` — what must exist before applying Terraform
+4. Read `docs/architecture/standards-and-compliance.md` — frameworks and standards applied to this design
+5. Read `bootstrap/org-setup/prerequisites-checklist.md` — what must exist before applying Terraform
 
 **Running Terraform locally:**
 ```bash

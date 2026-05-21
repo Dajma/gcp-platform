@@ -1,0 +1,65 @@
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfstate.*.backup
+*.tfplan
+*.tfplan.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Environment-specific secrets — NEVER commit
+*.tfvars.local
+*.auto.tfvars
+!terraform/environments/*/terraform.tfvars
+
+# Credentials and keys — NEVER commit
+*.json
+!**/versions.tf
+*-key.json
+*_key.json
+service-account*.json
+credentials.json
+gcp-credentials.json
+.credentials/
+*.pem
+*.p12
+
+# Pre-commit cache
+.pre-commit-cache/
+
+# Checkov cache
+.checkov/
+.checkov.baseline
+
+# tflint cache
+.tflint.d/
+
+# terraform-docs
+.terraform-docs-cache/
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# Logs
+*.log
+logs/
+
+# Python (for scripts)
+__pycache__/
+*.pyc
+.venv/

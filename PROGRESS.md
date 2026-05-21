@@ -1,13 +1,14 @@
 # Platform Build Progress
 
-## Current Phase: 0 — Bootstrap & Prerequisites (IN PROGRESS)
+## Current Phase: 0 — Bootstrap & Prerequisites (COMPLETE — pending pre-commit install)
 
 ---
 
 ## Phase 0 — Bootstrap & Prerequisites
 
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 **Started:** 2026-05-20
+**Completed:** 2026-05-21
 
 ### Checklist
 
@@ -32,17 +33,33 @@
 - [x] `docs/decisions/ADR-003-bootstrap-approach.md`
 - [x] `docs/architecture/system-context.md` — full platform ASCII diagram
 
-#### Human-run manual steps (YOU must complete these)
-- [ ] Collect GCP org ID (`gcloud organizations list`)
-- [ ] Collect billing account ID (`gcloud billing accounts list`)
-- [ ] Choose primary region (e.g. `us-central1`)
-- [ ] Enable required APIs (see `bootstrap/org-setup/prerequisites-checklist.md`)
-- [ ] Create Terraform state GCS bucket (see `bootstrap/terraform-backend/README.md`)
-- [ ] Create super-admin service account (see `bootstrap/org-setup/prerequisites-checklist.md`)
-- [ ] Grant org-level roles to super-admin SA (see `bootstrap/org-setup/required-roles.md`)
-- [ ] Populate `terraform/environments/dev/terraform.tfvars` with real values
+#### Human-run manual steps
+- [x] Collect GCP org ID — `473689265669`
+- [x] Collect billing account ID — `01DA3A-863E5F-D24BB4`
+- [x] Choose primary region — `us-central1`
+- [x] Enable required APIs on admin project
+- [x] Create Terraform state GCS bucket — `meelass-terraform-state-4740a462`
+- [x] Create super-admin service account — `terraform-org-admin@meelass-terraform-admin.iam.gserviceaccount.com`
+- [x] Grant 12 org-level roles to super-admin SA
+- [x] Grant impersonation right to `admin@meelass.com`
+- [x] Populate `terraform/environments/*/terraform.tfvars` with real values
+- [x] Populate `terraform/environments/*/backend.tfvars` with real bucket name
 - [ ] Verify SA impersonation works locally
 - [ ] Install pre-commit hooks: `pre-commit install`
+
+---
+
+## GCP Environment
+
+| Item | Value |
+|---|---|
+| Organisation | `meelass.com` / `473689265669` |
+| Billing account | `01DA3A-863E5F-D24BB4` |
+| Admin project | `meelass-terraform-admin` |
+| Terraform SA | `terraform-org-admin@meelass-terraform-admin.iam.gserviceaccount.com` |
+| State bucket | `meelass-terraform-state-4740a462` |
+| Primary region | `us-central1` |
+| Org domain | `meelass.com` |
 
 ---
 

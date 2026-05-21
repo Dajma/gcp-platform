@@ -50,6 +50,9 @@ Thumbs.db
 *.swo
 *~
 
+# Windows Zone.Identifier metadata (WSL downloads)
+*:Zone.Identifier
+
 # IDE
 .idea/
 .vscode/

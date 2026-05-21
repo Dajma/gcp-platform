@@ -878,3 +878,297 @@ This gives you visibility into any boot-level tampering even if the attacker suc
 **Org policy enforcement:**
 `compute.requireShieldedVm = true` (Phase 1) — all VMs in all projects must use Shielded VM.
 Any attempt to create an unshielded VM is blocked before it starts.
+
+---
+
+## 16. Clarifications and Follow-up Questions
+
+---
+
+### 16.1 What does "bind the group once at the folder level" actually mean?
+
+IAM policies in GCP are attached to a resource — an organisation, a folder, or a project.
+When you attach a policy to a folder, every project inside that folder **inherits** it automatically.
+You do not have to touch each project individually.
+
+**Concrete example:**
+
+```
+Organisation
+└── Folder: prod/
+    ├── Project: gke-prod
+    ├── Project: app-payments-prod
+    └── Project: app-orders-prod
+```
+
+You run this single command once:
+
+```bash
+gcloud resource-manager folders add-iam-policy-binding FOLDER_ID \
+  --member="group:platform-admins@example.com" \
+  --role="roles/compute.admin"
+```
+
+Result:
+- `platform-admins` group has `roles/compute.admin` on `gke-prod` — inherited
+- `platform-admins` group has `roles/compute.admin` on `app-payments-prod` — inherited
+- `platform-admins` group has `roles/compute.admin` on `app-orders-prod` — inherited
+
+Add a fourth project tomorrow under `prod/` — it inherits the binding automatically.
+Remove a person from the Google Group — access revoked across all three projects instantly.
+
+**Without folder-level bindings** you would need to run that command three times (once per project),
+and repeat it for every new project added. With 50 projects across 10 teams, that is 500 IAM
+operations. Miss one and you have a privilege gap or a ghost permission sitting on a decommissioned project.
+
+**The inheritance chain:**
+
+```
+Organisation IAM
+    ↓ inherited by
+Folder IAM  (e.g. prod/)
+    ↓ inherited by
+Project IAM
+    ↓ inherited by
+Resource IAM  (e.g. a specific GCS bucket)
+```
+
+Bindings flow **downward only** — a folder cannot inherit from a project, a project
+cannot inherit from a sibling project. Deny policies (a newer feature) can be used to
+override inherited allows, but regular allow policies are additive: a lower-level policy
+adds permissions on top of inherited ones, never removes them.
+
+**This is why group membership matters so much.**
+The group is the indirection layer between the IAM binding (which rarely changes) and the
+people in it (who join and leave constantly). The IAM binding at the folder level points
+to the group. Managing access = managing group membership in Cloud Identity/Workspace.
+You never touch IAM policies to onboard or offboard a person.
+
+---
+
+### 16.2 If GCP VPCs are global and regions communicate freely, what is the purpose of subnets?
+
+Good challenge. The global VPC and free inter-region communication answers "can A talk to B?"
+Subnets answer four different questions: **what IP does a resource get, where does it live,
+what policies apply to it, and what services can attach to it?**
+
+**1. IP address assignment**
+Resources (VMs, GKE nodes, Cloud SQL) get IPs from subnets, not from the VPC directly.
+A VM in `us-central1` gets an IP from `subnet-gke-nodes-prod` (10.0.0.0/20).
+A VM in `europe-west1` gets an IP from `subnet-gke-nodes-prod-eu` (10.16.0.0/20).
+Without subnets, GCP has no mechanism to assign IPs to resources — the VPC itself has
+no IP range, only subnets do.
+
+**2. Regional placement**
+A subnet is tied to a region. When you create a VM in `us-central1`, it must be placed
+in a subnet that exists in `us-central1`. The subnet enforces where the resource physically runs.
+This is critical for latency, data residency compliance, and disaster recovery zone planning.
+
+**3. Policy attachment point**
+Several GCP features attach at the subnet level:
+- **Private Google Access** — enable per subnet. VMs in that subnet can reach Google APIs privately.
+  A different subnet in the same VPC can have PGA disabled.
+- **Secondary IP ranges** — GKE pod and service CIDRs are defined as secondary ranges on a subnet.
+  This is how VPC-native GKE clusters allocate pod IPs without consuming primary subnet space.
+- **VPC Flow Logs** — enabled per subnet. You pay for what you log; enabling it only on
+  sensitive subnets saves cost while maintaining visibility where it matters.
+- **Cloud NAT** — configured per region and per subnet. You can NAT only specific subnets
+  through a NAT gateway, giving different egress behaviour to different workload tiers.
+
+**4. Network segmentation and access control**
+Firewall rules in GCP target VMs (via network tags or service accounts), not subnets directly.
+However, subnets define the IP ranges, and firewall rules can use IP ranges as source/destination.
+Example: allow traffic from `10.0.0.0/20` (the GKE nodes subnet) to `10.0.16.0/24` (the SQL subnet)
+on port 5432. Without subnets with defined CIDRs, you cannot write targeted firewall rules.
+
+**Summary:**
+The global VPC gives you a single routing domain with no cross-region friction.
+Subnets give you IP allocation, regional placement, per-subnet feature control, and the
+CIDR ranges needed for meaningful firewall rules. They solve different problems.
+
+---
+
+### 16.3 In Shared VPC, does IAM from the host project apply to the spoke projects?
+
+**No. IAM does not cross project boundaries in either direction.**
+
+The Shared VPC host project and the service (spoke) projects have completely separate IAM policies.
+What the host project controls is **network resource access** only — not project-level IAM.
+
+Here is the precise boundary:
+
+| What the host project controls | What it does NOT control |
+|---|---|
+| Who can use which subnets in its VPC | IAM inside the service project |
+| Who can create/modify firewall rules | Who can deploy VMs or GKE clusters in the service project |
+| Who can manage Cloud NAT and DNS | Who can access GCS buckets in the service project |
+| Network admin roles on the VPC | Any non-networking resource in the service project |
+
+**The specific permission that governs Shared VPC subnet access:**
+
+The host project's network admin grants `roles/compute.networkUser` on a specific subnet
+to the service account (or group) that will deploy resources into that subnet:
+
+```bash
+# Grant gke-prod's GKE SA permission to use subnet-gke-nodes-prod in the host project
+gcloud compute networks subnets add-iam-policy-binding subnet-gke-nodes-prod \
+  --region=us-central1 \
+  --member="serviceAccount:gke-sa@gke-prod.iam.gserviceaccount.com" \
+  --role="roles/compute.networkUser" \
+  --project=networking-host-prod
+```
+
+This gives `gke-sa` permission to attach VMs to that subnet.
+It gives it **nothing else** — no access to other subnets, no access to the host project's
+other resources, no access to other service projects.
+
+**The separation is exactly what we want:**
+- Network engineers manage the host project — subnets, NAT, DNS, firewalls
+- Application teams manage their own service projects — deployments, IAM, application config
+- Neither has visibility or control over the other's domain
+
+---
+
+### 16.4 Is it true that one VPC = one project, access-wise?
+
+**By default, yes. With Shared VPC, no.**
+
+**Default behaviour (no Shared VPC):**
+A VPC is created in a project. Only resources in that project can attach to subnets in that VPC.
+There is no mechanism for a VM in Project B to get an IP from Project A's subnet — unless
+you use VPC Peering (which connects VPCs, not subnets) or Shared VPC.
+
+**With Shared VPC:**
+The host project's VPC can be used by multiple service projects. The VPC is still owned by
+one project (the host), but multiple projects place resources into its subnets.
+So the accurate statement is: **one VPC = one owning project, but potentially many consuming projects.**
+
+**With VPC Peering:**
+Two separate VPCs (in separate projects) exchange routes. They remain separate VPCs —
+resources in each project keep their own VPC's IPs and routing. It is connectivity between
+VPCs, not sharing a single VPC. Resources in Project A do not get IPs from Project B's subnets.
+
+**The practical consequence for this design:**
+
+```
+networking-host-prod (owns prod-vpc)
+  └── subnet-gke-nodes-prod  10.0.0.0/20
+      ├── gke-prod nodes: 10.0.0.1 – 10.0.0.100   ← resources in gke-prod project
+      ├── app-payments VM: 10.0.0.101              ← resources in app-payments-prod project
+      └── security-project VM: 10.0.0.102          ← resources in security-project
+```
+
+Multiple projects, one subnet, one VPC, one project owning it — this is exactly Shared VPC.
+
+---
+
+### 16.5 Is the firewall at the VPC level or subnet level?
+
+**Neither — GCP firewalls are applied at the VM (instance) level.**
+
+This is one of the most important differences from traditional networking (and from AWS,
+where Security Groups are attached to ENIs and NACLs to subnets).
+
+**How GCP firewall rules actually work:**
+
+A firewall rule is attached to a VPC and targets VMs via **network tags** or **service accounts**:
+
+```hcl
+# Allow port 5432 from GKE nodes to Cloud SQL VMs
+resource "google_compute_firewall" "allow_gke_to_sql" {
+  name    = "allow-gke-to-sql"
+  network = "prod-vpc"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["5432"]
+  }
+
+  # Source: any VM tagged "gke-node"
+  source_tags = ["gke-node"]
+
+  # Target: any VM tagged "cloud-sql-proxy"
+  target_tags = ["cloud-sql-proxy"]
+}
+```
+
+When a packet arrives at a VM, GCP evaluates all firewall rules in the VPC that apply
+to that VM (based on its tags or service account). The rule is enforced at the hypervisor
+level — the VM never even sees blocked packets.
+
+**There is no NACL equivalent in GCP.** You cannot block traffic at the subnet boundary.
+If a VM has a firewall rule allowing port 80, it receives port-80 traffic regardless of
+which subnet it is in.
+
+**Hierarchical Firewall Policies (what we use):**
+
+These work differently — they are attached at the organisation or folder level and applied
+**before** project-level rules. They define baseline rules that cannot be overridden by
+project-level rules:
+
+```
+Evaluation order for a packet:
+  1. Hierarchical firewall policies (org level)
+  2. Hierarchical firewall policies (folder level)
+  3. Project-level VPC firewall rules
+  4. Implicit deny-all (if no rule matched)
+```
+
+Our design:
+- **Org-level policy**: deny all ingress by default; allow IAP (Identity-Aware Proxy) for SSH
+- **Project-level rules**: workload-specific allows (GKE pod-to-pod, LB health checks, etc.)
+
+This means: even if an application team adds a misconfigured firewall rule in their project,
+the org-level deny policy is evaluated first and blocks unexpected traffic from the internet.
+
+---
+
+### 16.6 Team Ownership Model — Who Owns What?
+
+Your understanding is correct. The project/folder structure maps directly to team ownership:
+
+| Infrastructure | Owner | What they control |
+|---|---|---|
+| `infrastructure/` folder | **Network engineers** | VPCs, subnets, Cloud NAT, Cloud DNS, firewall baselines, VPN/Interconnect |
+| `security/` folder | **Security team** | KMS keyrings, Secret Manager, SCC policies, log sinks, Binary Auth policies, VPC Service Controls |
+| `shared-services/` folder | **Platform / DevOps team** | Artifact Registry, CI/CD pipelines, WIF providers, shared tooling |
+| `prod/` folder | **Platform team** (deploy) + **App teams** (own their project) | GKE clusters, app projects — platform deploys the infrastructure, app teams own what runs on it |
+| `nonprod/` folder | **App teams** (more autonomy) | Dev/staging clusters, application deployments |
+| `sandbox/` folder | **Anyone** | No guardrails, self-service, auto-cleanup |
+| Org-level policies + audit logging | **Platform / Security lead** | Controls that apply everywhere |
+
+**This is how Stripe, Shopify, and similar companies operate:**
+
+- Network engineers own the network and nothing else. They have no access to application code or secrets.
+- Security engineers own the key material and audit trail. They can see logs but cannot deploy workloads.
+- Application teams own their projects. They cannot touch networking — they get allocated a subnet and work within it.
+- The platform team operates the glue: CI/CD, the Terraform modules, GKE clusters. They have broad access but are bound by the same Terraform-first, PR-reviewed change process as everyone else.
+
+**The IAM model enforces this separation:**
+
+```
+group: network-engineers@
+  → roles/compute.networkAdmin  on infrastructure/ folder
+  → roles/compute.xpnAdmin      on org (to manage Shared VPC attachments)
+  → NO access to security/, prod/, nonprod/ folders
+
+group: secops@
+  → roles/cloudkms.admin        on security/ folder
+  → roles/securitycenter.admin  on org
+  → roles/logging.admin         on logging-central project
+  → NO access to infrastructure/, prod/ folders
+
+group: platform-admins@
+  → roles/container.admin       on prod/, nonprod/ folders
+  → roles/viewer                on infrastructure/ folder (read-only visibility)
+  → NO access to security/ folder (cannot touch KMS keys)
+
+group: developers@
+  → roles/viewer                on nonprod/ folder only
+  → NO access to prod/, infrastructure/, security/ folders
+```
+
+Each group can only do what their role requires. A network engineer cannot accidentally
+(or intentionally) read a Secret Manager secret. A developer cannot modify a firewall rule.
+A security engineer cannot deploy a workload to production. This is separation of duties
+implemented through IAM — not just policy, but technically enforced.

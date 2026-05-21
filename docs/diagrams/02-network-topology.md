@@ -8,36 +8,36 @@ graph TD
 
     subgraph HUB_PROD["networking-host-prod  (Shared VPC Host)"]
         VPC_PROD["prod-vpc  10.0.0.0/8"]
-        NAT_PROD["☁️ Cloud NAT\n(all egress)"]
-        DNS_PROD["🔤 Cloud DNS\ninternal.example.com"]
-        FW_PROD["🔥 Hierarchical Firewall\nDeny-by-default baseline"]
-        LB["⚖️ Cloud Load Balancer\n+ Cloud Armor (WAF)"]
+        NAT_PROD["☁️ Cloud NAT<br/>(all egress)"]
+        DNS_PROD["🔤 Cloud DNS<br/>internal.example.com"]
+        FW_PROD["🔥 Hierarchical Firewall<br/>Deny-by-default baseline"]
+        LB["⚖️ Cloud Load Balancer<br/>+ Cloud Armor (WAF)"]
 
         subgraph SUBNETS_PROD["Subnets  (us-central1)"]
-            SN_GKE_PROD["subnet-gke-nodes-prod\n10.0.0.0/20\n+ pods: 10.1.0.0/16\n+ svcs: 10.2.0.0/20"]
-            SN_SQL_PROD["subnet-sql-prod\n10.0.16.0/24\nPrivate Service Access"]
-            SN_SVC_PROD["subnet-internal-prod\n10.0.32.0/22\nInternal services"]
+            SN_GKE_PROD["subnet-gke-nodes-prod<br/>10.0.0.0/20<br/>+ pods: 10.1.0.0/16<br/>+ svcs: 10.2.0.0/20"]
+            SN_SQL_PROD["subnet-sql-prod<br/>10.0.16.0/24<br/>Private Service Access"]
+            SN_SVC_PROD["subnet-internal-prod<br/>10.0.32.0/22<br/>Internal services"]
         end
     end
 
     subgraph HUB_NONPROD["networking-host-nonprod  (Shared VPC Host)"]
         VPC_NONPROD["nonprod-vpc  10.64.0.0/8"]
         NAT_NONPROD["☁️ Cloud NAT"]
-        DNS_NONPROD["🔤 Cloud DNS\ninternal.example.com"]
+        DNS_NONPROD["🔤 Cloud DNS<br/>internal.example.com"]
 
         subgraph SUBNETS_NONPROD["Subnets  (us-central1)"]
-            SN_GKE_NONPROD["subnet-gke-nodes-nonprod\n10.64.0.0/20\n+ pods: 10.65.0.0/16\n+ svcs: 10.66.0.0/20"]
-            SN_SQL_NONPROD["subnet-sql-nonprod\n10.64.16.0/24"]
+            SN_GKE_NONPROD["subnet-gke-nodes-nonprod<br/>10.64.0.0/20<br/>+ pods: 10.65.0.0/16<br/>+ svcs: 10.66.0.0/20"]
+            SN_SQL_NONPROD["subnet-sql-nonprod<br/>10.64.16.0/24"]
         end
     end
 
     subgraph SPOKES_PROD["Prod Service Projects  (attached to prod VPC)"]
-        GKE_PROD["gke-prod\nPrivate GKE cluster\nno public IPs"]
-        APP_PROD["app-{name}-prod\nCloud Run / VMs\nno public IPs"]
+        GKE_PROD["gke-prod<br/>Private GKE cluster<br/>no public IPs"]
+        APP_PROD["app-{name}-prod<br/>Cloud Run / VMs<br/>no public IPs"]
     end
 
     subgraph SPOKES_NONPROD["Nonprod Service Projects  (attached to nonprod VPC)"]
-        GKE_NONPROD["gke-nonprod\nPrivate GKE cluster"]
+        GKE_NONPROD["gke-nonprod<br/>Private GKE cluster"]
         APP_NONPROD["app-{name}-nonprod"]
     end
 
@@ -76,13 +76,13 @@ PGA = Private Google Access (all APIs reachable without public IP)
 
 ```mermaid
 graph TD
-    HFW["Hierarchical Firewall Policy\n(org-level)\nDeny all ingress by default\nAllow: IAP → 22,3389\nAllow: health-check ranges"]
+    HFW["Hierarchical Firewall Policy<br/>(org-level)<br/>Deny all ingress by default<br/>Allow: IAP → 22,3389<br/>Allow: health-check ranges"]
 
-    PFW_NET["Project FW — networking-host\nAllow: GKE node comms\nAllow: Cloud NAT hairpin\nAllow: DNS 53"]
+    PFW_NET["Project FW — networking-host<br/>Allow: GKE node comms<br/>Allow: Cloud NAT hairpin<br/>Allow: DNS 53"]
 
-    PFW_GKE["Project FW — gke-prod\nAllow: pod-to-pod\nAllow: LB health checks\nAllow: control plane → nodes"]
+    PFW_GKE["Project FW — gke-prod<br/>Allow: pod-to-pod<br/>Allow: LB health checks<br/>Allow: control plane → nodes"]
 
-    PFW_APP["Project FW — app projects\nAllow: internal subnet → app port\nDeny: all else"]
+    PFW_APP["Project FW — app projects<br/>Allow: internal subnet → app port<br/>Deny: all else"]
 
     HFW -->|"inherited by all folders/projects"| PFW_NET
     HFW --> PFW_GKE

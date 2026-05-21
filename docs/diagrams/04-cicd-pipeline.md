@@ -4,29 +4,29 @@
 
 ```mermaid
 flowchart TD
-    DEV["👨‍💻 Developer\npushes to branch"]
+    DEV["👨‍💻 Developer<br/>pushes to branch"]
 
     subgraph PR["Pull Request — runs on every push"]
-        V["validate\n• terraform fmt check\n• terraform validate\n• tflint (GCP rules)"]
-        SS["security-scan\n• checkov\n• tfsec\n• OPA/Conftest policies"]
-        PLAN["plan\n• terraform plan\n• posts diff to PR\n• cost estimate"]
+        V["validate<br/>• terraform fmt check<br/>• terraform validate<br/>• tflint (GCP rules)"]
+        SS["security-scan<br/>• checkov<br/>• tfsec<br/>• OPA/Conftest policies"]
+        PLAN["plan<br/>• terraform plan<br/>• posts diff to PR<br/>• cost estimate"]
 
         V --> SS --> PLAN
     end
 
     subgraph MERGE["Merge to main"]
-        APPLY_NONPROD["apply-nonprod\n• auto-triggered\n• WIF → SA impersonation\n• applies to dev/staging"]
+        APPLY_NONPROD["apply-nonprod<br/>• auto-triggered<br/>• WIF → SA impersonation<br/>• applies to dev/staging"]
     end
 
     subgraph PROD_GATE["Prod Deployment (manual gate)"]
-        APPROVAL["👤 Required Approval\n• GitHub environment protection\n• Named approver required\n• Links to issue/ticket"]
-        APPLY_PROD["apply-prod\n• WIF → prod SA\n• applies to prod layer"]
+        APPROVAL["👤 Required Approval<br/>• GitHub environment protection<br/>• Named approver required<br/>• Links to issue/ticket"]
+        APPLY_PROD["apply-prod<br/>• WIF → prod SA<br/>• applies to prod layer"]
         APPROVAL --> APPLY_PROD
     end
 
     subgraph NIGHTLY["Nightly Jobs (cron)"]
-        DRIFT["drift-detect\n• terraform plan -detailed-exitcode\n• alerts on any diff\n• posts to Slack/PagerDuty"]
-        DOCGEN["docs-gen\n• terraform-docs\n• opens auto-PR if README changed"]
+        DRIFT["drift-detect<br/>• terraform plan -detailed-exitcode<br/>• alerts on any diff<br/>• posts to Slack/PagerDuty"]
+        DOCGEN["docs-gen<br/>• terraform-docs<br/>• opens auto-PR if README changed"]
     end
 
     DEV --> PR
@@ -77,13 +77,13 @@ sequenceDiagram
 ```mermaid
 graph LR
     subgraph JOBS["GitHub Actions Jobs"]
-        J1["validate\nTrigger: every push\nBlocks: security-scan\nFails on: fmt diff, validate error, tflint"]
-        J2["security-scan\nTrigger: every push\nBlocks: plan\nFails on: HIGH/CRITICAL checkov/tfsec findings"]
-        J3["plan\nTrigger: every push\nBlocks: merge\nOutputs: plan summary as PR comment"]
-        J4["apply-nonprod\nTrigger: merge to main\nAuto: yes\nEnv: nonprod WIF provider"]
-        J5["apply-prod\nTrigger: merge to main\nAuto: NO — requires approval\nEnv: prod WIF provider"]
-        J6["drift-detect\nTrigger: nightly 02:00 UTC\nAlerts: if exitcode == 2"]
-        J7["docs-gen\nTrigger: nightly 03:00 UTC\nOpens: auto-PR for README updates"]
+        J1["validate<br/>Trigger: every push<br/>Blocks: security-scan<br/>Fails on: fmt diff, validate error, tflint"]
+        J2["security-scan<br/>Trigger: every push<br/>Blocks: plan<br/>Fails on: HIGH/CRITICAL checkov/tfsec findings"]
+        J3["plan<br/>Trigger: every push<br/>Blocks: merge<br/>Outputs: plan summary as PR comment"]
+        J4["apply-nonprod<br/>Trigger: merge to main<br/>Auto: yes<br/>Env: nonprod WIF provider"]
+        J5["apply-prod<br/>Trigger: merge to main<br/>Auto: NO — requires approval<br/>Env: prod WIF provider"]
+        J6["drift-detect<br/>Trigger: nightly 02:00 UTC<br/>Alerts: if exitcode == 2"]
+        J7["docs-gen<br/>Trigger: nightly 03:00 UTC<br/>Opens: auto-PR for README updates"]
     end
 
     J1 --> J2 --> J3

@@ -6,7 +6,7 @@
 
 ```mermaid
 graph TD
-    ORG["🏢 GCP Organization\n(org_domain)"]
+    ORG["🏢 GCP Organization<br/>(org_domain)"]
 
     ORG --> INFRA["📁 infrastructure/"]
     ORG --> SEC["📁 security/"]
@@ -15,22 +15,22 @@ graph TD
     ORG --> NONPROD["📁 nonprod/"]
     ORG --> SANDBOX["📁 sandbox/"]
 
-    INFRA --> NET_PROD["📦 networking-host-prod\nShared VPC host\nCloud NAT · Cloud DNS"]
-    INFRA --> NET_NONPROD["📦 networking-host-nonprod\nShared VPC host\nCloud NAT · Cloud DNS"]
+    INFRA --> NET_PROD["📦 networking-host-prod<br/>Shared VPC host<br/>Cloud NAT · Cloud DNS"]
+    INFRA --> NET_NONPROD["📦 networking-host-nonprod<br/>Shared VPC host<br/>Cloud NAT · Cloud DNS"]
 
-    SEC --> LOG["📦 logging-central\nLog sinks (all projects)\nBigQuery · GCS archive"]
-    SEC --> SECPROJ["📦 security-project\nKMS · Secret Manager\nSCC · Binary Auth policy"]
+    SEC --> LOG["📦 logging-central<br/>Log sinks (all projects)<br/>BigQuery · GCS archive"]
+    SEC --> SECPROJ["📦 security-project<br/>KMS · Secret Manager<br/>SCC · Binary Auth policy"]
 
-    SS --> CICD["📦 cicd-platform\nArtifact Registry\nGitHub WIF provider"]
-    SS --> SHARED["📦 shared-services\nCloud DNS (private)\nShared internal APIs"]
+    SS --> CICD["📦 cicd-platform<br/>Artifact Registry<br/>GitHub WIF provider"]
+    SS --> SHARED["📦 shared-services<br/>Cloud DNS (private)<br/>Shared internal APIs"]
 
-    PROD --> GKE_PROD["📦 gke-prod\nPrivate GKE cluster\nWorkload Identity\nBinary Auth ON"]
-    PROD --> APP_PROD["📦 app-{name}-prod\n(per application)\nAttached to prod VPC"]
+    PROD --> GKE_PROD["📦 gke-prod<br/>Private GKE cluster<br/>Workload Identity<br/>Binary Auth ON"]
+    PROD --> APP_PROD["📦 app-{name}-prod<br/>(per application)<br/>Attached to prod VPC"]
 
-    NONPROD --> GKE_NONPROD["📦 gke-nonprod\nPrivate GKE cluster\nWorkload Identity"]
-    NONPROD --> APP_NONPROD["📦 app-{name}-nonprod\n(per application)\nAttached to nonprod VPC"]
+    NONPROD --> GKE_NONPROD["📦 gke-nonprod<br/>Private GKE cluster<br/>Workload Identity"]
+    NONPROD --> APP_NONPROD["📦 app-{name}-nonprod<br/>(per application)<br/>Attached to nonprod VPC"]
 
-    SANDBOX --> SBX["📦 sandbox\nFree-form experiments\nAuto-cleanup policy"]
+    SANDBOX --> SBX["📦 sandbox<br/>Free-form experiments<br/>Auto-cleanup policy"]
 
     style ORG fill:#4285F4,color:#fff,stroke:#2956a3
     style INFRA fill:#EA4335,color:#fff,stroke:#b31412
@@ -56,13 +56,13 @@ graph TD
 
 ```mermaid
 graph LR
-    ORG_POLICY["Org Policies\n(Phase 1)"]
-    AUDIT["Audit Logging\nAdmin Activity\nData Access\nSystem Events"]
-    SCC["Security Command Center\nStandard tier"]
-    BILLING["Billing Alerts\n$10 / $25 / $50 / $100"]
-    HFW["Hierarchical Firewall\nDeny-by-default baseline"]
+    ORG_POLICY["Org Policies<br/>(Phase 1)"]
+    AUDIT["Audit Logging<br/>Admin Activity<br/>Data Access<br/>System Events"]
+    SCC["Security Command Center<br/>Standard tier"]
+    BILLING["Billing Alerts<br/>$10 / $25 / $50 / $100"]
+    HFW["Hierarchical Firewall<br/>Deny-by-default baseline"]
 
-    ORG_POLICY --> |"restricts all projects"| SCOPE["All Projects\nin all folders"]
+    ORG_POLICY --> |"restricts all projects"| SCOPE["All Projects<br/>in all folders"]
     AUDIT --> |"sinks to"| SCOPE
     SCC --> |"scans"| SCOPE
     HFW --> |"applies to"| SCOPE

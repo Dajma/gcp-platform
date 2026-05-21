@@ -5,39 +5,39 @@
 ```mermaid
 graph TD
     subgraph LAYER0["Layer 0 — Perimeter"]
-        CA["Cloud Armor\nWAF · DDoS protection\nIP allowlist/denylist"]
-        VPC_SC["VPC Service Controls\nAPI-level perimeter\n(prod only, Phase 4)"]
+        CA["Cloud Armor<br/>WAF · DDoS protection<br/>IP allowlist/denylist"]
+        VPC_SC["VPC Service Controls<br/>API-level perimeter<br/>(prod only, Phase 4)"]
     end
 
     subgraph LAYER1["Layer 1 — Identity & Access"]
-        WIF["Workload Identity Federation\nZero static credentials\nCI/CD + app workloads"]
-        IAM["IAM — Least Privilege\nNo primitive roles\nGroup-based bindings only"]
-        BG["Break-Glass Accounts\n2 accounts, separate MFA\nAlert on any use"]
-        OSLOGIN["OS Login\nEnforced via org policy\nNo SSH keys on VMs"]
+        WIF["Workload Identity Federation<br/>Zero static credentials<br/>CI/CD + app workloads"]
+        IAM["IAM — Least Privilege<br/>No primitive roles<br/>Group-based bindings only"]
+        BG["Break-Glass Accounts<br/>2 accounts, separate MFA<br/>Alert on any use"]
+        OSLOGIN["OS Login<br/>Enforced via org policy<br/>No SSH keys on VMs"]
     end
 
     subgraph LAYER2["Layer 2 — Network"]
-        PRIV["Private-by-Default\nNo public IPs on workloads\nCloud NAT for egress"]
-        HFW["Hierarchical Firewall\nDeny-by-default baseline"]
-        PSA["Private Service Access\nCloud SQL, Memorystore\nnever exposed to internet"]
+        PRIV["Private-by-Default<br/>No public IPs on workloads<br/>Cloud NAT for egress"]
+        HFW["Hierarchical Firewall<br/>Deny-by-default baseline"]
+        PSA["Private Service Access<br/>Cloud SQL, Memorystore<br/>never exposed to internet"]
     end
 
     subgraph LAYER3["Layer 3 — Compute"]
-        SHIELDED["Shielded VMs\nSecure Boot · vTPM\nIntegrity Monitoring"]
-        BINAUTH["Binary Authorization\nAll container images attested\nNo unverified images in prod"]
-        PSP["Pod Security Standards\nrestricted profile\nNo privileged containers"]
+        SHIELDED["Shielded VMs<br/>Secure Boot · vTPM<br/>Integrity Monitoring"]
+        BINAUTH["Binary Authorization<br/>All container images attested<br/>No unverified images in prod"]
+        PSP["Pod Security Standards<br/>restricted profile<br/>No privileged containers"]
     end
 
     subgraph LAYER4["Layer 4 — Data"]
-        CMEK["CMEK\nCustomer-managed keys\nAll data stores in prod"]
-        KMS["Cloud KMS\nKeys in dedicated project\nSeparated from data"]
-        SM["Secret Manager\nAll secrets centralised\nVersion + audit every access"]
+        CMEK["CMEK<br/>Customer-managed keys<br/>All data stores in prod"]
+        KMS["Cloud KMS<br/>Keys in dedicated project<br/>Separated from data"]
+        SM["Secret Manager<br/>All secrets centralised<br/>Version + audit every access"]
     end
 
     subgraph LAYER5["Layer 5 — Detection & Response"]
-        SCC["Security Command Center\nMisconfig detection\nThreat detection"]
-        AUDIT["Cloud Audit Logs\nAdmin Activity\nData Access\nSystem Events"]
-        LOGMET["Log-Based Metrics\nFailed auth alerts\nPrivilege escalation\nConfig changes"]
+        SCC["Security Command Center<br/>Misconfig detection<br/>Threat detection"]
+        AUDIT["Cloud Audit Logs<br/>Admin Activity<br/>Data Access<br/>System Events"]
+        LOGMET["Log-Based Metrics<br/>Failed auth alerts<br/>Privilege escalation<br/>Config changes"]
     end
 
     LAYER0 --> LAYER1
@@ -59,25 +59,25 @@ graph TD
 ```mermaid
 graph LR
     subgraph HUMANS["Human Access"]
-        ADMIN_GRP["group: platform-admins@\nroles/resourcemanager.folderAdmin\nroles/iam.securityAdmin"]
-        DEV_GRP["group: developers@\nroles/viewer (nonprod only)\nroles/logging.viewer"]
-        SECOPS_GRP["group: secops@\nroles/securitycenter.admin\nroles/logging.admin"]
-        BG_ACCT["break-glass-1@\nbreak-glass-2@\nroles/owner (org level)\nAlert on every use"]
+        ADMIN_GRP["group: platform-admins@<br/>roles/resourcemanager.folderAdmin<br/>roles/iam.securityAdmin"]
+        DEV_GRP["group: developers@<br/>roles/viewer (nonprod only)<br/>roles/logging.viewer"]
+        SECOPS_GRP["group: secops@<br/>roles/securitycenter.admin<br/>roles/logging.admin"]
+        BG_ACCT["break-glass-1@<br/>break-glass-2@<br/>roles/owner (org level)<br/>Alert on every use"]
     end
 
     subgraph CICD["CI/CD Identity"]
-        GH_OIDC["GitHub OIDC Token\n(ephemeral, per-job)"]
-        WIF_POOL["WIF Identity Pool\nper environment\nnot shared prod/nonprod"]
-        TF_SA["terraform-apply-sa@\nroles/specific per layer\nImpersonation only"]
+        GH_OIDC["GitHub OIDC Token<br/>(ephemeral, per-job)"]
+        WIF_POOL["WIF Identity Pool<br/>per environment<br/>not shared prod/nonprod"]
+        TF_SA["terraform-apply-sa@<br/>roles/specific per layer<br/>Impersonation only"]
 
         GH_OIDC -->|"exchanges via WIF"| WIF_POOL
         WIF_POOL -->|"impersonates"| TF_SA
     end
 
     subgraph WORKLOADS["Workload Identity (GKE)"]
-        KSA["Kubernetes ServiceAccount\nper workload"]
-        GSA["GCP ServiceAccount\nper workload\nminimum permissions"]
-        WI_BINDING["Workload Identity Binding\nKSA → GSA\nno key export"]
+        KSA["Kubernetes ServiceAccount<br/>per workload"]
+        GSA["GCP ServiceAccount<br/>per workload<br/>minimum permissions"]
+        WI_BINDING["Workload Identity Binding<br/>KSA → GSA<br/>no key export"]
 
         KSA -->|"annotated with"| WI_BINDING
         WI_BINDING -->|"projects to"| GSA
@@ -92,26 +92,26 @@ graph LR
 
 ```mermaid
 flowchart LR
-    DEV["Developer\n(local)"]
-    CI["CI Pipeline\n(GitHub Actions)"]
-    APP["Application\n(GKE Pod)"]
+    DEV["Developer<br/>(local)"]
+    CI["CI Pipeline<br/>(GitHub Actions)"]
+    APP["Application<br/>(GKE Pod)"]
 
     subgraph MGMT["secret-project / KMS"]
-        SM["Secret Manager\nversioned secrets\nIAM-controlled access\naudit every read"]
-        KMS["Cloud KMS\nCMEK keys\nper-environment keyrings\nannual rotation"]
+        SM["Secret Manager<br/>versioned secrets<br/>IAM-controlled access<br/>audit every read"]
+        KMS["Cloud KMS<br/>CMEK keys<br/>per-environment keyrings<br/>annual rotation"]
     end
 
     subgraph DATA["Data Stores (prod)"]
-        SQL["Cloud SQL\nCMEK encrypted"]
-        GCS_DATA["Cloud Storage\nCMEK encrypted"]
-        BQ["BigQuery\nCMEK encrypted"]
+        SQL["Cloud SQL<br/>CMEK encrypted"]
+        GCS_DATA["Cloud Storage<br/>CMEK encrypted"]
+        BQ["BigQuery<br/>CMEK encrypted"]
     end
 
-    DEV -->|"impersonate SA\ngcloud secrets access"| SM
-    CI -->|"WIF token → SA\nSecret Manager API"| SM
-    APP -->|"Workload Identity\nSecret Manager API"| SM
+    DEV -->|"impersonate SA<br/>gcloud secrets access"| SM
+    CI -->|"WIF token → SA<br/>Secret Manager API"| SM
+    APP -->|"Workload Identity<br/>Secret Manager API"| SM
 
-    SM -->|"returns plaintext\nover TLS in-memory"| APP
+    SM -->|"returns plaintext<br/>over TLS in-memory"| APP
     KMS -->|"wraps data encryption keys"| SQL
     KMS --> GCS_DATA
     KMS --> BQ

@@ -1,6 +1,6 @@
 # Platform Build Progress
 
-## Current Phase: 0 — Bootstrap & Prerequisites (COMPLETE — pending pre-commit install)
+## Current Phase: 1 — Organization & Folder Hierarchy (COMPLETE)
 
 ---
 
@@ -44,8 +44,58 @@
 - [x] Grant impersonation right to `admin@meelass.com`
 - [x] Populate `terraform/environments/*/terraform.tfvars` with real values
 - [x] Populate `terraform/environments/*/backend.tfvars` with real bucket name
-- [ ] Verify SA impersonation works locally
-- [ ] Install pre-commit hooks: `pre-commit install`
+- [x] Verify SA impersonation works locally — confirmed via ADC impersonation
+- [x] Install pre-commit hooks: `pre-commit install`
+
+---
+
+## Phase 1 — Organization & Folder Hierarchy
+
+**Status:** COMPLETE
+**Started:** 2026-05-21
+**Completed:** 2026-05-22
+
+### Checklist
+
+#### Terraform layers applied
+- [x] `terraform/platform/folders/` — 6 top-level folders created under org
+- [x] `terraform/platform/org-policies/` — 10 CIS GCP Benchmark v2.0 constraints enforced
+- [x] `terraform/platform/audit-logging/` — org-wide ADMIN_READ + DATA_READ + DATA_WRITE
+- [x] `terraform/platform/billing-alerts/` — CAD $100 budget with 4 threshold alerts
+- [x] `docs/decisions/ADR-004-folder-strategy.md`
+
+#### Resources created
+- [x] Folder: `infrastructure` — `folders/386767465346`
+- [x] Folder: `security` — `folders/509957683122`
+- [x] Folder: `shared-services` — `folders/667624449165`
+- [x] Folder: `prod` — `folders/442721992513`
+- [x] Folder: `nonprod` — `folders/373396933001`
+- [x] Folder: `sandbox` — `folders/323037062130`
+- [x] Org policy: `compute.requireShieldedVm` (ENFORCE)
+- [x] Org policy: `compute.requireOsLogin` (ENFORCE)
+- [x] Org policy: `compute.skipDefaultNetworkCreation` (ENFORCE)
+- [x] Org policy: `iam.disableServiceAccountKeyCreation` (ENFORCE)
+- [x] Org policy: `iam.disableServiceAccountKeyUpload` (ENFORCE)
+- [x] Org policy: `iam.automaticIamGrantsForDefaultServiceAccounts` (ENFORCE)
+- [x] Org policy: `storage.uniformBucketLevelAccess` (ENFORCE)
+- [x] Org policy: `storage.publicAccessPrevention` (ENFORCE)
+- [x] Org policy: `compute.vmExternalIpAccess` (DENY ALL)
+- [x] Org policy: `gcp.resourceLocations` (ALLOW: us-central1, global)
+- [x] Audit logging: `allServices` ADMIN_READ + DATA_READ + DATA_WRITE
+- [x] Billing budget: CAD $100 ceiling, alerts at 10/25/50/100%
+
+#### Post-bootstrap IAM fix
+- [x] `terraform-org-admin` SA granted `roles/billing.admin` at billing account level
+  (org-level billing.admin does not cascade to billingbudgets API)
+
+#### Lessons learned / gotchas
+- `orgpolicy.googleapis.com` not enabled by bootstrap script — added `google_project_service` resource
+- `gcp.resourceLocations` group value must be `"global"` not `"in:global-locations"` (v2 API)
+- `google_billing_budget.billing_account` takes raw ID (no `billingAccounts/` prefix)
+- Billing account `01DA3A-863E5F-D24BB4` uses **CAD** currency (not USD)
+- `roles/billing.admin` at org level does NOT grant billing budget create permission — must be bound at billing account level
+- ADC impersonation must use `gcloud auth application-default login --impersonate-service-account=...`
+  (not `gcloud config set auth/impersonate_service_account` which only affects gcloud CLI, not Terraform)
 
 ---
 
@@ -54,12 +104,23 @@
 | Item | Value |
 |---|---|
 | Organisation | `meelass.com` / `473689265669` |
-| Billing account | `01DA3A-863E5F-D24BB4` |
+| Billing account | `01DA3A-863E5F-D24BB4` (CAD currency) |
 | Admin project | `meelass-terraform-admin` |
 | Terraform SA | `terraform-org-admin@meelass-terraform-admin.iam.gserviceaccount.com` |
 | State bucket | `meelass-terraform-state-4740a462` |
 | Primary region | `us-central1` |
 | Org domain | `meelass.com` |
+
+## Folder IDs
+
+| Folder | ID |
+|---|---|
+| `infrastructure` | `386767465346` |
+| `security` | `509957683122` |
+| `shared-services` | `667624449165` |
+| `prod` | `442721992513` |
+| `nonprod` | `373396933001` |
+| `sandbox` | `323037062130` |
 
 ---
 
@@ -70,16 +131,13 @@
 | ADR-001 | GCS backend, per-layer state files | 2026-05-20 |
 | ADR-002 | Multi-project topology (11 core projects) | 2026-05-20 |
 | ADR-003 | Manual bootstrap for state bucket | 2026-05-20 |
+| ADR-004 | 6 top-level folders (infrastructure, security, shared-services, prod, nonprod, sandbox) | 2026-05-21 |
 
 ---
 
 ## Open Questions
 
-- GCP Organization ID — not yet collected
-- Billing Account ID — not yet collected
-- Primary region preference — not yet chosen
 - GitHub org/repo name — not yet created (WIF will be configured in Phase 6)
-- Custom domain for Cloud Identity / Workspace — needed for group-based IAM in Phase 2
 
 ---
 
@@ -91,17 +149,21 @@ None currently.
 
 ## Phase History
 
-*(phases will be logged here as completed)*
+| Phase | Status | Completed |
+|---|---|---|
+| Phase 0 — Bootstrap & Prerequisites | COMPLETE | 2026-05-21 |
+| Phase 1 — Organization & Folder Hierarchy | COMPLETE | 2026-05-22 |
 
 ---
 
-## Next Up: Phase 1 — Organization & Folder Hierarchy
+## Next Up: Phase 2 — IAM Foundation
 
-**Gate:** Phase 0 is complete when all manual checklist items above are done and SA impersonation is verified working.
+**Gate:** Phase 1 is complete. All layers applied and verified.
 
-Phase 1 will cover:
-- Folder structure (prod, nonprod, security, shared-services, infrastructure, sandbox)
-- Org-level audit logging (all services, all log types) via `terraform/platform/`
-- Foundational org policies (restrictive baseline)
-- Billing alerts
-- ADR: folder strategy
+Phase 2 will cover:
+- Group-based IAM strategy — Google Workspace groups mapped to folders
+- Break-glass account documentation and alert setup
+- Service account strategy document
+- No primitive roles org policy (roles/owner, roles/editor blocked)
+- IAM audit baseline — `gcloud asset search-all-iam-policies` scan
+- ADR: IAM strategy

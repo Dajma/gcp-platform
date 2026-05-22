@@ -7,6 +7,7 @@ Running index of all ADRs for this platform. Add a row every time a new ADR is w
 | [ADR-001](ADR-001-terraform-state-strategy.md) | Terraform State Strategy | Accepted | 2026-05-20 | 0 |
 | [ADR-002](ADR-002-project-structure.md) | Multi-Project Topology | Accepted | 2026-05-20 | 0 |
 | [ADR-003](ADR-003-bootstrap-approach.md) | Bootstrap Approach | Accepted | 2026-05-20 | 0 |
+| [ADR-004](ADR-004-folder-strategy.md) | GCP Folder Hierarchy Strategy | Accepted | 2026-05-21 | 1 |
 
 ---
 
